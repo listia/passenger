@@ -117,6 +117,7 @@ class AbstractRequestHandler
 	OBJECT_SPACE_SUPPORTS_COUNT_OBJECTS = ObjectSpace.respond_to?(:count_objects)
 	GC_SUPPORTS_TIME = GC.respond_to?(:time)
 	GC_SUPPORTS_CLEAR_STATS = GC.respond_to?(:clear_stats)
+	GC_AFTER_REQUEST_FREQ = 5
 	
 	# A hash containing all server sockets that this request handler listens on.
 	# The hash is in the form of:
@@ -539,6 +540,11 @@ private
 			raise e
 		end
 	ensure
+		# GC.start must come before the connection closes or else passenger will
+		# send requests onto the rails process when it is garbage collecting as
+		# if it is ready to serve requests
+		GC.start if @processed_requests % GC_AFTER_REQUEST_FREQ == 0
+
 		# The 'close_write' here prevents forked child
 		# processes from unintentionally keeping the
 		# connection open.
